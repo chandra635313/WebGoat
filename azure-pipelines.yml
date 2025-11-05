@@ -1,19 +1,35 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
-- develop
+- main
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: 'ubuntu-latest'
 
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+- checkout: self
 
+# Install Snyk CLI
 - script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+    curl https://static.snyk.io/cli/latest/snyk-linux -o snyk
+    chmod +x snyk
+    sudo mv snyk /usr/local/bin/
+  displayName: 'Install Snyk CLI'
+
+# Authenticate
+- script: snyk auth $(SNYK_TOKEN)
+  displayName: 'Authenticate Snyk'
+
+# Code & Dependency Scan
+- script: snyk test --severity-threshold=medium
+  displayName: 'Snyk Code & Dependency Scan'
+
+# Generate HTML Report
+- script: snyk test --json > snyk-report.json
+  displayName: "Generate Snyk JSON Report"
+
+# Upload Report as Pipeline Artifact
+- task: PublishPipelineArtifact@1
+  inputs:
+    targetPath: 'snyk-report.json'
+    artifact: 'snyk-report'
+    publishLocation: 'pipeline'
+  displayName: 'Publish Snyk Report'
